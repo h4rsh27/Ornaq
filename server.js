@@ -30,7 +30,13 @@ const io = new Server(server, {
 
 setupSockets(io);
 
-app.use(cors({ origin: origins, credentials: true }));
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://ornaq-frontend.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(
@@ -65,4 +71,4 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
-});
+});
