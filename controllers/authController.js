@@ -38,18 +38,32 @@ const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export const register = async (req, res) => {
   const { name, email, password, phone } = req.body;
-  const exists = await User.findOne({ email });
-  if (exists) {
-    return res.status(StatusCodes.BAD_REQUEST).json({ message: "Email already registered" });
+  try {
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: "Email already registered" });
+    }
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      authProviders: ["password"]
+    });
+    return res.status(StatusCodes.CREATED).json(buildAuthResponse(user));
+  } catch (err) {
+    // Handle MongoDB duplicate key errors (race condition)
+    if (err.code === 11000) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: "Email already registered" });
+    }
+    // Handle Mongoose validation errors
+    if (err.name === "ValidationError") {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: err.message });
+    }
+    // Log unexpected errors but do not leak details
+    console.error("Register error:", err);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Registration failed. Please try again." });
   }
-  const user = await User.create({
-    name,
-    email,
-    password,
-    phone,
-    authProviders: ["password"]
-  });
-  return res.status(StatusCodes.CREATED).json(buildAuthResponse(user));
 };
 
 export const login = async (req, res) => {

@@ -50,22 +50,25 @@ const allowedOrigins = Array.from(
 );
 
 const isAllowedOrigin = (origin) => {
-  if (!origin) return true;
+  if (!origin) return true; // allow non-browser requests (curl, mobile, etc.)
   const normalizedOrigin = origin.trim().replace(/\/+$/, "");
   return allowedOrigins.includes(normalizedOrigin);
 };
 
-const corsOptions = {
+const buildCorsOptions = () => ({
   origin(origin, callback) {
     if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    // DO NOT throw — return null so the request is rejected gracefully
+    return callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Authorization", "Content-Type", "Accept", "X-Requested-With"]
-};
+});
+
+const corsOptions = buildCorsOptions();
 
 app.set("trust proxy", 1);
 
@@ -73,7 +76,7 @@ app.set("trust proxy", 1);
    SOCKET.IO (FIXED)
 ========================= */
 const io = new Server(server, {
-  cors: corsOptions,
+  cors: { ...corsOptions },
   transports: ["websocket", "polling"]
 });
 
