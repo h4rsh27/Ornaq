@@ -25,23 +25,56 @@ import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 const app = express();
 const server = http.createServer(app);
 
-/* =========================
-   FIXED: SINGLE SOURCE OF TRUTH
-========================= */
-const origins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(",")
-  : ["http://localhost:5173"];
-
 const isProduction = process.env.NODE_ENV === "production";
+const defaultOrigins = [
+  "https://ornaq-frontend.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:5176",
+  "http://localhost:5177",
+  "http://localhost:5178",
+  "http://localhost:5179",
+  "http://localhost:5180"
+];
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      ...defaultOrigins,
+      ...(process.env.CLIENT_URL || "")
+        .split(",")
+        .map((origin) => origin.trim().replace(/\/+$/, ""))
+        .filter(Boolean)
+    ]
+  )
+);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+  return allowedOrigins.includes(normalizedOrigin);
+};
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type", "Accept", "X-Requested-With"]
+};
+
+app.set("trust proxy", 1);
 
 /* =========================
    SOCKET.IO (FIXED)
 ========================= */
 const io = new Server(server, {
-  cors: {
-    origin: origins,
-    credentials: true
-  }
+  cors: corsOptions,
+  transports: ["websocket", "polling"]
 });
 
 setupSockets(io);
@@ -49,13 +82,8 @@ setupSockets(io);
 /* =========================
    EXPRESS CORS (FIXED)
 ========================= */
-app.use(cors({
-  origin: ["http://localhost:5173", "https://ornaq-frontend.vercel.app"],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-}));
-
-app.options("*", cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(helmet());
 app.use(morgan("dev"));
