@@ -3,10 +3,11 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    name: { type: String, trim: true },
+    email: { type: String, unique: true, lowercase: true, trim: true, sparse: true },
     password: { type: String, minlength: 6 },
     phone: String,
+    phoneNumber: { type: String, index: true, sparse: true },
     avatar: String,
     googleId: { type: String, index: true, sparse: true },
     authProviders: [{ type: String, enum: ["password", "mobile_otp", "google"] }],

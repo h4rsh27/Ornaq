@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import { sendEmail } from "../services/emailService.js";
 import { sendCustomerNotification } from "../services/notificationService.js";
 import { generateToken } from "../utils/generateToken.js";
+import { sendSmsOtp } from "../services/smsService.js";
 
 const normalizeRole = (role) => String(role || "").toLowerCase();
 
@@ -61,50 +62,52 @@ export const login = async (req, res) => {
 };
 
 export const requestOtp = async (req, res) => {
-  const normalizedPhone = String(req.body.phone || "").trim();
+  const rawPhone = String(req.body.phone || req.body.phoneNumber || "");
+  const normalizedPhone = rawPhone.replace(/\D/g, "").slice(-10); // Take last 10 digits
   if (!/^\d{10}$/.test(normalizedPhone)) {
     return res.status(StatusCodes.BAD_REQUEST).json({ message: "Enter a valid 10-digit mobile number." });
   }
 
-  let user = await User.findOne({ phone: normalizedPhone });
+  let user = await User.findOne({ $or: [{ phone: normalizedPhone }, { phoneNumber: normalizedPhone }] });
   if (!user) {
     user = await User.create({
-      name: req.body.name || `Ornac Customer ${normalizedPhone.slice(-4)}`,
-      email: req.body.email || `mobile-${normalizedPhone}@ornac.local`,
+      name: req.body.name || `Customer ${normalizedPhone.slice(-4)}`,
+      phoneNumber: normalizedPhone,
       phone: normalizedPhone,
       authProviders: ["mobile_otp"]
     });
   }
 
   const otp = generateOtp();
+  const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES || "5");
   user.otpLogin = {
     codeHash: buildOtpHash(otp),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 10),
+    expiresAt: new Date(Date.now() + 1000 * 60 * expiryMinutes),
     attempts: 0
   };
   ensureProvider(user, "mobile_otp");
   await user.save();
 
-  await sendCustomerNotification({
-    user,
-    emailSubject: "Your Ornac OTP",
-    emailText: `Your Ornac login OTP is ${otp}. It will expire in 10 minutes.`,
-    whatsappTemplate: "login_otp",
-    whatsappText: `Your Ornac login OTP is ${otp}. It will expire in 10 minutes.`,
-    meta: { purpose: "login_otp" }
-  });
+  try {
+    await sendSmsOtp(normalizedPhone, otp);
+  } catch (error) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+      message: "Failed to send SMS. Please try again later." 
+    });
+  }
 
   return res.json({
     message: "OTP sent successfully.",
-    previewCode: process.env.NODE_ENV !== "production" ? otp : undefined
+    previewCode: process.env.OTP_MODE === "mock" ? otp : undefined
   });
 };
 
 export const verifyOtp = async (req, res) => {
-  const normalizedPhone = String(req.body.phone || "").trim();
+  const rawPhone = String(req.body.phone || req.body.phoneNumber || "");
+  const normalizedPhone = rawPhone.replace(/\D/g, "").slice(-10);
   const otp = String(req.body.otp || "").trim();
 
-  const user = await User.findOne({ phone: normalizedPhone });
+  const user = await User.findOne({ $or: [{ phone: normalizedPhone }, { phoneNumber: normalizedPhone }] });
   if (!user?.otpLogin?.codeHash || !user?.otpLogin?.expiresAt) {
     return res.status(StatusCodes.BAD_REQUEST).json({ message: "OTP not requested or already used." });
   }
@@ -132,14 +135,6 @@ export const verifyOtp = async (req, res) => {
 };
 
 export const googleLogin = async (req, res) => {
-  const allowMock =
-    String(process.env.GOOGLE_LOGIN_ALLOW_MOCK || "false") === "true" || process.env.NODE_ENV !== "production";
-  if (!allowMock) {
-    return res.status(StatusCodes.SERVICE_UNAVAILABLE).json({
-      message: "Google login is scaffolded and ready, but it requires environment setup before use."
-    });
-  }
-
   const { email, name, googleId, avatar } = req.body;
   if (!email || !name) {
     return res.status(StatusCodes.BAD_REQUEST).json({ message: "Google profile data is required." });
@@ -150,7 +145,7 @@ export const googleLogin = async (req, res) => {
     user = await User.create({
       name,
       email,
-      googleId: googleId || `mock-${Date.now()}`,
+      googleId: googleId || `google-${Date.now()}`,
       avatar,
       authProviders: ["google"]
     });

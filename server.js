@@ -59,12 +59,10 @@ app.use("/api/reviews", reviewRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
+connectDB();
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
-});
-app.use(cors({
-  origin: "*",
-  credentials: true
-}));
+});
