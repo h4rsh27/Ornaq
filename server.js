@@ -50,9 +50,12 @@ setupSockets(io);
    EXPRESS CORS (FIXED)
 ========================= */
 app.use(cors({
-  origin: origins,
-  credentials: true
+  origin: ["http://localhost:5173", "https://ornaq-frontend.vercel.app"],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }));
+
+app.options("*", cors());
 
 app.use(helmet());
 app.use(morgan("dev"));
