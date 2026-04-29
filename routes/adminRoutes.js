@@ -10,7 +10,7 @@ const router = express.Router();
 
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === "production" ? 5 : 200,
+  max: process.env.NODE_ENV === "production" ? 50 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many login attempts, please try again later",

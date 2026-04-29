@@ -28,6 +28,7 @@ const server = http.createServer(app);
 const isProduction = process.env.NODE_ENV === "production";
 const defaultOrigins = [
   "https://ornaq-frontend.vercel.app",
+  "https://ornaq-frontend-ng6cvkfd8-shindeharsh2121-6097s-projects.vercel.app", // User provided
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
@@ -52,6 +53,12 @@ const allowedOrigins = Array.from(
 const isAllowedOrigin = (origin) => {
   if (!origin) return true; // allow non-browser requests (curl, mobile, etc.)
   const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+  
+  // Explicitly allow any Vercel deployment for this project
+  if (normalizedOrigin.endsWith(".vercel.app") && normalizedOrigin.includes("ornaq-frontend")) {
+    return true;
+  }
+  
   return allowedOrigins.includes(normalizedOrigin);
 };
 
@@ -60,12 +67,21 @@ const buildCorsOptions = () => ({
     if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    // DO NOT throw — return null so the request is rejected gracefully
+    // Return false to block but keep it silent
     return callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type", "Accept", "X-Requested-With"]
+  allowedHeaders: [
+    "Authorization", 
+    "Content-Type", 
+    "Accept", 
+    "X-Requested-With", 
+    "Origin",
+    "Access-Control-Request-Method",
+    "Access-Control-Request-Headers"
+  ],
+  exposedHeaders: ["Set-Cookie"]
 });
 
 const corsOptions = buildCorsOptions();

@@ -37,17 +37,25 @@ const buildOtpHash = (code) => crypto.createHash("sha256").update(String(code)).
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export const register = async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, role } = req.body;
   try {
     const exists = await User.findOne({ email });
     if (exists) {
       return res.status(StatusCodes.BAD_REQUEST).json({ message: "Email already registered" });
     }
+
+    // Automatically assign admin role if email matches ADMIN_EMAIL
+    let finalRole = role || "user";
+    if (process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase()) {
+      finalRole = "admin";
+    }
+
     const user = await User.create({
       name,
       email,
       password,
       phone,
+      role: finalRole,
       authProviders: ["password"]
     });
     return res.status(StatusCodes.CREATED).json(buildAuthResponse(user));

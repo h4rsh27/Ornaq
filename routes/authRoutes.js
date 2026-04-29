@@ -17,7 +17,7 @@ import { validateRequest } from "../middleware/validateRequest.js";
 const router = express.Router();
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === "production" ? 15 : 500,
+  max: process.env.NODE_ENV === "production" ? 100 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV !== "production"
